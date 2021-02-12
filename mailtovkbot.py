@@ -8,24 +8,20 @@ Created on Thu Feb 11 11:14:54 2021
 
 import imaplib
 import email
-from email.header import decode_header
-#import webbrowser
-#import os
-import io
 from time import sleep
 import json
 import vk_api
 from vk_api.utils import get_random_id
+import html2text
+import io
 
 conf = json.loads(open('config.json').read())
 
-# из конфига
 username = conf['username']
 password = conf['password']
 vk_token = conf['vk_token']
 peer_id = conf['peer_id']
 
-#подключаем ВК
 vk_session = vk_api.VkApi(token = vk_token)
 vk = vk_session.get_api()
 upload = vk_api.VkUpload(vk_session)
@@ -40,93 +36,43 @@ def uploadDoc(filename, dat):
     file.close()
     return f"doc{doc['doc']['owner_id']}_{doc['doc']['id']},"
 
-def clean(text):
-    # clean text for creating a folder
-    return "".join(c if c.isalnum() else "_" for c in text)
-
-def decode(bitesandencoding):
-    b, encoding = bitesandencoding
+def decode(s):
+    if not type(s) == str: return "none"
+    h = email.header.decode_header(s)
     s = ''
-    if isinstance(b, bytes):
-        if encoding == None:
-            s = b.decode()
-        else:
-            s = b.decode(encoding)
-    else:
-        s = str(b)
+    for b, encoding in h:
+        try:
+            s += b.decode(encoding)+' '
+        except:
+            if isinstance(b, bytes):
+                s += b.decode()+' '
+            else:
+                s += str(b)+' '
     return s
 
-def newMsg(msg):
-    vk_msg = ''
-    attachments = ''
-    for response in msg:
-        if isinstance(response, tuple):
-            # генерируем письмо
-            msg = email.message_from_bytes(response[1])
-            # получаем тему письма
-            try:
-                subject = decode(decode_header(msg["Subject"])[0])
-            except:
-                subject = 'None'
-            # получаем отправителя
-            try:
-                From = decode(decode_header(msg.get("From"))[0])
-            except:
-                From = 'None'
-            try:
-                mail = decode(decode_header(msg.get("From"))[1])
-            except:
-                mail = 'None'
-            print("Тема:", subject)
-            print("От кого:", From)
-            vk_msg = f'Тема: {subject}\nОт кого: {From} {mail}\n'
-            # получаем тип сообщения
-            content_type = msg.get_content_type()
-            # если сообщение электронной почты составное
-            if msg.is_multipart():
-                # проходимя по всем частям
-                for part in msg.walk():
-                    content_disposition = str(part.get("Content-Disposition"))
-                    try:
-                        # пытаемся получить содержимое
-                        body = part.get_payload(decode=True).decode()
-                        print(body)
-                        vk_msg += f'\n{body}'
-                    except:
-                        pass
-                    if "attachment" in content_disposition:
-                        # скачиваем вложения
-                        filename = part.get_filename()
-                        data = part.get_payload(decode=True)
-                        try:
-                            attachments+=uploadDoc(filename, data)
-                        except:
-                            pass
-                        
-            else:
-                # получаем содержимое
-                body = msg.get_payload(decode=True).decode()
-                if content_type == "text/plain":
-                    # выводим только текстовые части электронного письма
-                    print(body)
-                    vk_msg += f'\n{body}'
-            if content_type == "text/html":
-                # отображение письма в браузере (законспектированно)
-                # if it's HTML, create a new HTML file and open it in browser
-                #folder_name = clean(subject)
-                #if not os.path.isdir(folder_name):
-                    # make a folder for this email (named after the subject)
-                    #os.mkdir(folder_name)
-                filename = "index.html"
-                #filepath = os.path.join(folder_name, filename)
-                # write the file
-                print(body)
-                vk_msg += f'\n{body}'
-                #open(filepath, "w").write(body)
-                # open in the default browser
-                #webbrowser.open(filepath)
-            print("="*100)
-    return vk_msg, attachments
+class Mail:
+    def __init__(self, message):
+        self.from_ = decode(message["from"])
+        self.subject = decode(message["subject"])
+        self.attachments = [] #(filename, data)
+        self.text = ''
+        if message.is_multipart():
+            for sub_message in message.get_payload():
+                self.add_content(sub_message)
+        else:
+            self.add_content(message)
+    def add_content(self, message):
+    #self.text += f'{message.get_content_disposition()} - {message.get_content_type()}\n'
+        if message.get_content_disposition() == None and message.get_content_type() == 'text/html':
+            self.text += f'{html2text.html2text(message.get_payload(decode=True).decode())}\n'
+        if message.get_content_disposition() == 'attachment':
+            self.attachments.append((decode(message.get_filename()), message.get_payload(decode=True)))
+    def get(self):
+        return f'''
+Тема: {self.subject}
+От: {self.from_}
+==========
+{self.text}'''
 
 # создаём класс IMAP4 с SSL
 imap = imaplib.IMAP4_SSL("imap.gmail.com")
@@ -137,9 +83,10 @@ imap.login(username, password)
 status, messages = imap.select("INBOX")
 result, data = imap.search(None, "ALL")
 old_id_list = data[0].split()
-
+#old_id_list = []
 print('Бот запущен')
 
+msg = ''
 #цикл получения новых писем
 while True:
     #получаем список новых писем
@@ -148,13 +95,21 @@ while True:
     id_list = data[0].split() # Разделяем ID писем
     new_id_list = list(set(id_list).difference(set(old_id_list)))
     for id in new_id_list:
-        # получаем письмо по ID
         res, msg = imap.fetch(id, "(RFC822)")
-        # обрабатываем письмо
-        vk_msg, attachments = newMsg(msg)
-        vk_msg = vk_msg.replace('<br />', '\n')
-        vk.messages.send(random_id=get_random_id(), peer_id=peer_id,
-                         message=vk_msg, attachment=attachments)
+        for response in msg:
+            if not isinstance(response, tuple): continue
+            message = email.message_from_bytes(response[1])
+            mail = Mail(message)
+            vk_msg = mail.get()
+            print(vk_msg)
+            attachments = ''
+            for filename, dat in mail.attachments:
+                try:
+                    attachments += uploadDoc(filename, dat)
+                except:
+                    pass
+            vk.messages.send(random_id=get_random_id(), peer_id=peer_id,
+                             message=vk_msg, attachment=attachments)
     old_id_list = id_list
     sleep(5)
 # закрываем соединение и выходим, (но зачем после вечного цикла?) )))
