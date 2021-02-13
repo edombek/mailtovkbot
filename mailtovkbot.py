@@ -71,6 +71,7 @@ class Mail:
         if message.get_content_disposition() == 'attachment':
             self.attachments.append((decode(message.get_filename()), message.get_payload(decode=True)))
     def get(self):
+        if self.from_ == 'none': return self.text
         return f'''
 Тема: {self.subject}
 От: {self.from_}
