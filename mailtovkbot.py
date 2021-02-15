@@ -93,29 +93,32 @@ print('Бот запущен')
 msg = ''
 #цикл получения новых писем
 while True:
+    try:
     #получаем список новых писем
-    status, messages = imap.select("INBOX")
-    result, data = imap.search(None, "ALL")
-    id_list = data[0].split() # Разделяем ID писем
-    new_id_list = list(set(id_list).difference(set(old_id_list)))
-    for id in new_id_list:
-        res, msg = imap.fetch(id, "(RFC822)")
-        for response in msg:
-            if not isinstance(response, tuple): continue
-            message = email.message_from_bytes(response[1])
-            mail = Mail(message)
-            vk_msg = mail.get()
-            print(vk_msg)
-            attachments = ''
-            for filename, dat in mail.attachments:
-                try:
-                    attachments += uploadDoc(filename, dat)
-                except:
-                    pass
-            vk.messages.send(random_id=get_random_id(), peer_id=peer_id,
-                             message=vk_msg, attachment=attachments)
-    old_id_list = id_list
+        status, messages = imap.select("INBOX")
+        result, data = imap.search(None, "ALL")
+        id_list = data[0].split() # Разделяем ID писем
+        new_id_list = list(set(id_list).difference(set(old_id_list)))
+        for id in new_id_list:
+            res, msg = imap.fetch(id, "(RFC822)")
+            for response in msg:
+                if not isinstance(response, tuple): continue
+                message = email.message_from_bytes(response[1])
+                mail = Mail(message)
+                vk_msg = mail.get()
+                print(vk_msg)
+                attachments = ''
+                for filename, dat in mail.attachments:
+                    try:
+                        attachments += uploadDoc(filename, dat)
+                    except:
+                        pass
+                vk.messages.send(random_id=get_random_id(), peer_id=peer_id,
+                                 message=vk_msg, attachment=attachments)
+        old_id_list = id_list
+    except:
+        print('reconect...')
+        #переподключаемся
+        imap = imaplib.IMAP4_SSL("imap.gmail.com")
+        imap.login(username, password)
     sleep(5)
-# закрываем соединение и выходим, (но зачем после вечного цикла?) )))
-imap.close()
-imap.logout()
