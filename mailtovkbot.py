@@ -38,6 +38,11 @@ def uploadDoc(filename, dat):
     return f"doc{doc['doc']['owner_id']}_{doc['doc']['id']},"
 
 
+def fixFileExtent(fname):
+    ext = fname.split('.')[-1]
+    return fname.replace(ext, ext.replace(' ', ''))
+
+
 def decode(s):
     if not type(s) == str:
         return "none"
@@ -108,41 +113,43 @@ while True:
         result, data = imap.search(None, "ALL")
         id_list = data[0].split()  # Разделяем ID писем
         new_id_list = list(set(id_list).difference(set(old_id_list)))
-        for id in new_id_list:
-            res, msg = imap.fetch(id, "(RFC822)")
-            for response in msg:
-                if not isinstance(response, tuple):
-                    continue
-                message = email.message_from_bytes(response[1])
-                mail = Mail(message)
-                vk_msg = mail.get()
-                print(vk_msg)
-                attachments = ''
-                lenattachments = 0
-                while len(vk_msg):
-                    vk_msg_ = vk_msg[:4000]
-                    vk_msg = vk_msg[4000:]
-                    vk.messages.send(random_id=get_random_id(), peer_id=peer_id,
-                                     message=vk_msg_)
-                for filename, dat in mail.attachments:
-                    try:
-                        attachments += uploadDoc(filename, dat)
-                        lenattachments += 1
-                        if lenattachments == 8:  # максимум в сообщении
-                            vk.messages.send(random_id=get_random_id(),
-                                             peer_id=peer_id, attachment=attachments)
-                            attachments = ''
-                            lenattachments = 0
-                    except:
-                        vk.messages.send(random_id=get_random_id(),
-                                         peer_id='Не все файлы отправлены, проверьте почту...')
-                    if lenattachments:
-                        vk.messages.send(random_id=get_random_id(),
-                                         peer_id=peer_id, attachment=attachments)
-        old_id_list = id_list
-    except:
+    except Exception as e:
+        print(e)
         print('reconect...')
         # переподключаемся
         imap = imaplib.IMAP4_SSL("imap.gmail.com")
         imap.login(username, password)
+        continue
+    for id in new_id_list:
+        res, msg = imap.fetch(id, "(RFC822)")
+        for response in msg:
+            if not isinstance(response, tuple):
+                continue
+            message = email.message_from_bytes(response[1])
+            mail = Mail(message)
+            vk_msg = mail.get()
+            print(vk_msg)
+            attachments = ''
+            lenattachments = 0
+            while len(vk_msg):
+                vk_msg_ = vk_msg[:4000]
+                vk_msg = vk_msg[4000:]
+                vk.messages.send(random_id=get_random_id(), peer_id=peer_id,
+                                 message=vk_msg_)
+            for filename, dat in mail.attachments:
+                try:
+                    attachments += uploadDoc(fixFileExtent(filename), dat)
+                    lenattachments += 1
+                except Exception as e:
+                    vk.messages.send(random_id=get_random_id(),
+                                     peer_id=peer_id, message=f'Файл: {filename} не отправлен, проверьте почту...\n{e}')
+                if lenattachments == 8:  # максимум в сообщении
+                    vk.messages.send(random_id=get_random_id(),
+                                     peer_id=peer_id, attachment=attachments)
+                    attachments = ''
+                    lenattachments = 0
+            if lenattachments:
+                vk.messages.send(random_id=get_random_id(),
+                                 peer_id=peer_id, attachment=attachments)
+    old_id_list = id_list
     sleep(5)
