@@ -29,6 +29,7 @@ upload = vk_api.VkUpload(vk_session)
 
 def uploadDoc(filename, dat):
     file = io.BytesIO(dat)
+    file.name = filename
     doc = upload.document_message(
         file,
         title=filename,
