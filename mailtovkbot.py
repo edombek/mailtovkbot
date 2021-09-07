@@ -21,6 +21,7 @@ username = conf['username']
 password = conf['password']
 vk_token = conf['vk_token']
 peer_id = conf['peer_id']
+imapserver = conf['imapserver']
 
 vk_session = vk_api.VkApi(token=vk_token)
 vk = vk_session.get_api()
@@ -94,7 +95,7 @@ class Mail:
 
 
 # создаём класс IMAP4 с SSL
-imap = imaplib.IMAP4_SSL("imap.gmail.com")
+imap = imaplib.IMAP4_SSL(imapserver)
 # автоизуемся
 imap.login(username, password)
 
@@ -118,7 +119,7 @@ while True:
         print(e)
         print('reconect...')
         # переподключаемся
-        imap = imaplib.IMAP4_SSL("imap.gmail.com")
+        imap = imaplib.IMAP4_SSL(imapserver)
         imap.login(username, password)
         continue
     for id in new_id_list:

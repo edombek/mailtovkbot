@@ -1,6 +1,7 @@
 {
     "username": "example@gmail.com",
     "password": "123pass",
+    "imapserver": "imap.mail.ru",
     "vk_token": "vk_bot_token",
     "peer_id": 123123
 }
