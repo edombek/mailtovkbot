@@ -99,7 +99,7 @@ imap = imaplib.IMAP4_SSL(imapserver)
 # автоизуемся
 imap.login(username, password)
 
-# то что уже вы почте
+# то что уже в почте
 status, messages = imap.select("INBOX")
 result, data = imap.search(None, "ALL")
 old_id_list = data[0].split()
@@ -154,4 +154,4 @@ while True:
                 vk.messages.send(random_id=get_random_id(),
                                  peer_id=peer_id, attachment=attachments)
     old_id_list = id_list
-    sleep(5)
+    sleep(30)
