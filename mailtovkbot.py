@@ -77,7 +77,7 @@ class Mail:
         #self.text += f'{message.get_content_disposition()} - {message.get_content_type()}\n'
         if message.get_content_disposition() in [None, 'inline'] and message.get_content_type() == 'text/html' :
             self.text += f'{html2text.html2text(message.get_payload(decode=True).decode())}\n'
-        if message.get_content_disposition() in [None, 'inline'] and message.get_content_type() == 'multipart/alternative':
+        if message.get_content_disposition() in None and message.get_content_type() == 'multipart/alternative':
             m = Mail(message)
             self.text += f'{m.get()}\n'
         if message.get_content_disposition() == 'attachment':
