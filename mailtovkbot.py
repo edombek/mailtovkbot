@@ -67,22 +67,30 @@ class Mail:
         self.subject = decode(message["subject"])
         self.attachments = []  # (filename, data)
         self.text = ''
+        self.txttype = 'text/plain'
         if message.is_multipart():
+            for sub_message in message.get_payload():
+                if sub_message.get_content_type() == 'text/html':
+                    self.txttype = 'text/html'
+                    break
             for sub_message in message.get_payload():
                 self.add_content(sub_message)
         else:
+            if message.get_content_type() == 'text/html':
+                self.txttype = 'text/html'
             self.add_content(message)
 
     def add_content(self, message):
-        #self.text += f'{message.get_content_disposition()} - {message.get_content_type()}\n'
-        if message.get_content_disposition() in [None, 'inline'] and message.get_content_type() == 'text/html' :
-            self.text += f'{html2text.html2text(message.get_payload(decode=True).decode())}\n'
-        if message.get_content_disposition() in None and message.get_content_type() == 'multipart/alternative':
-            m = Mail(message)
-            self.text += f'{m.get()}\n'
         if message.get_content_disposition() == 'attachment':
             self.attachments.append(
                 (decode(message.get_filename()), message.get_payload(decode=True)))
+            return
+        if message.get_content_type() == 'multipart/alternative':
+            m = Mail(message)
+            self.text += f'{m.get()}\n'
+            self.attachments += m.attachments
+        if message.get_content_type() == self.txttype:
+            self.text += f'{html2text.html2text(message.get_payload(decode=True).decode())}\n'
 
     def get(self):
         if self.from_ == 'none':
