@@ -90,7 +90,10 @@ class Mail:
             self.text += f'{m.get()}\n'
             self.attachments += m.attachments
         if message.get_content_type() == self.txttype:
-            self.text += f'{html2text.html2text(message.get_payload(decode=True).decode())}\n'
+            if self.txttype == 'text/plain':
+                self.text += f'{message.get_payload(decode=True).decode()}\n'
+            else:
+                self.text += f'{html2text.html2text(message.get_payload(decode=True).decode())}\n'
 
     def get(self):
         if self.from_ == 'none':
